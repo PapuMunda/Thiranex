@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Administrative Matrix Control Console</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: sans-serif; }
+    body { background: #fafafa; padding: 30px; }
+    .panel { max-width: 600px; margin: 0 auto; background: white; padding: 30px; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); }
+    input, textarea { width: 100%; padding: 12px; margin-bottom: 15px; border: 1px solid #cbd5e1; border-radius: 6px; }
+    button { width: 100%; padding: 12px; background: #2563eb; color: white; border: none; font-weight: bold; border-radius: 6px; cursor: pointer; }
+    button:hover { background: #1d4ed8; }
+  </style>
+</head>
+<body>
+  <div class="panel">
+    <h2>Administrative Provisioning Engine</h2><br>
+    <p>Use this workspace dashboard interface to inject new operational hardware structures into the standard public product database collections catalog mapping framework.</p><br>
+    <form id="prodForm">
+      <input type="text" id="pName" placeholder="Product Identification Name" required>
+      <input type="number" id="pPrice" placeholder="Wholesale Market Value ($)" required>
+      <textarea id="pDesc" placeholder="Full technical product capabilities description mapping schema documentation text..." rows="3" required></textarea>
+      <input type="number" id="pStock" placeholder="Initial Inventory Stock Units Assignment Volume" required>
+      <button type="submit">Commit Inventory Item to Database</button>
+    </form>
+    <br><a href="/" style="display:block; text-align:center; color:#64748b; font-size:0.9rem;">Exit Console Workspace</a>
+  </div>
+  <script>
+    const token = localStorage.getItem('shop_token');
+    if (localStorage.getItem('shop_role') !== 'admin') { alert('Administrative check failure.'); window.location.href = '/'; }
+
+    document.getElementById('prodForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const payload = {
+        name: document.getElementById('pName').value,
+        price: Number(document.getElementById('pPrice').value),
+        description: document.getElementById('pDesc').value,
+        stock: Number(document.getElementById('pStock').value)
+      };
+      const res = await fetch('/api/products', {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      if(res.ok) { alert('Product structural layout deployed flawlessly.'); document.getElementById('prodForm').reset(); }
+      else { alert('Deployment exception error encountered.'); }
+    });
+  </script>
+</body>
+</html>

@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Marketplace Emporium</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: sans-serif; }
+    body { background: #f8fafc; padding: 20px; }
+    .header { max-width: 1100px; margin: 0 auto 20px; display: flex; justify-content: space-between; align-items: center; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
+    .catalog-layout { max-width: 1100px; margin: 0 auto; display: grid; grid-template-columns: 2fr 1fr; gap: 20px; }
+    .product-card { background: white; padding: 20px; margin-bottom: 15px; border-radius: 6px; border: 1px solid #e2e8f0; display: flex; justify-content: space-between; align-items: center; }
+    .cart-box, .orders-box { background: white; padding: 20px; border-radius: 6px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); margin-bottom: 20px; }
+    .btn { padding: 8px 16px; background: #0f172a; color: white; border: none; border-radius: 4px; cursor: pointer; }
+    .btn-checkout { background: #10b981; width: 100%; padding: 12px; margin-top: 10px; font-weight: bold; }
+    .order-ticket { padding: 10px; border-bottom: 1px solid #f1f5f9; font-size: 0.9rem; }
+    .badge { padding: 2px 6px; border-radius: 4px; background: #e2e8f0; font-weight: bold; font-size: 0.75rem; }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <h2>Marketplace Catalog</h2>
+    <div>
+      <span id="roleBadge" style="margin-right: 10px;"></span>
+      <button class="btn" style="background:#ef4444;" onclick="localStorage.clear(); window.location.href='/login';">Disconnect</button>
+    </div>
+  </div>
+
+  <div class="catalog-layout">
+    <div>
+      <h3>Available Stock Components</h3><br>
+      <div id="catalogListing"></div>
+    </div>
+    <div>
+      <div class="cart-box">
+        <h3>Shopping Cart Matrix</h3><br>
+        <div id="cartListing"><p style="color:#64748b;">Cart structural storage array empty.</p></div>
+        <button class="btn btn-checkout" id="checkoutBtn" style="display: none;">Execute Payment Checkout</button>
+      </div>
+      <div class="orders-box">
+        <h3>Historical Tracking Streams</h3><br>
+        <div id="ordersListing"></div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const token = localStorage.getItem('shop_token');
+    if (!token) window.location.href = '/login';
+    if (localStorage.getItem('shop_role') === 'admin') document.getElementById('roleBadge').innerHTML = '<a href="/admin" style="font-weight:bold; color:#2563eb;">Admin Console</a>';
+
+    let cart = [];
+    let products = [];
+
+    async function req(url, method = 'GET', body = null) {
+      const opts = { method, headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' }};
+      if (body) opts.body = JSON.stringify(body);
+      const res = await fetch(url, opts);
+      if (res.status === 401 || res.status === 403) { localStorage.clear(); window.location.href = '/login'; }
+      return res.json();
+    }
+
+    async function initStorefront() {
+      products = await req('/api/products');
+      const container = document.getElementById('catalogListing');
+      container.innerHTML = '';
+      products.forEach(p => {
+        const row = document.createElement('div');
+        row.className = 'product-card';
+        row.innerHTML = `<div><strong>${p.name}</strong><p style="font-size:0.85rem; color:#64748b;">${p.description}</p></div>
+                         <div><span style="margin-right:15px; font-weight:bold;">$${p.price}</span><button class="btn" onclick="addToCart('${p._id}')">Add to Cart</button></div>`;
+        container.appendChild(row);
+      });
+      renderOrders();
+    }
+
+    window.addToCart = (id) => {
+      const target = products.find(p => p._id === id);
+      cart.push(target);
+      renderCart();
+    };
+
+    function renderCart() {
+      const container = document.getElementById('cartListing');
+      const checkBtn = document.getElementById('checkoutBtn');
+      if(cart.length === 0) { container.innerHTML = '<p>Cart empty.</p>'; checkBtn.style.display = 'none'; return; }
+      container.innerHTML = '';
+      let runningTotal = 0;
+      cart.forEach((item, index) => {
+        runningTotal += item.price;
+        container.innerHTML += `<div style="display:flex; justify-content:space-between; margin-bottom:8px;"><span>${item.name}</span><strong>$${item.price}</strong></div>`;
+      });
+      container.innerHTML += `<hr style="margin:10px 0;"><div style="display:flex; justify-content:space-between;"><strong>Total Due:</strong><strong>$${runningTotal}</strong></div>`;
+      checkBtn.style.display = 'block';
+    }
+
+    document.getElementById('checkoutBtn').addEventListener('click', async () => {
+      const totalCost = cart.reduce((sum, item) => sum + item.price, 0);
+      await req('/api/orders', 'POST', { items: cart, total: totalCost });
+      alert('Order payload dispatched successfully.');
+      cart = [];
+      renderCart();
+      renderOrders();
+    });
+
+    async function renderOrders() {
+      const container = document.getElementById('ordersListing');
+      const orders = await req('/api/orders');
+      container.innerHTML = orders.length ? '' : '<p style="color:#64748b;">No tracked transactions.</p>';
+      orders.forEach(o => {
+        container.innerHTML += `<div class="order-ticket">Order ID: <code>${o._id.slice(-6)}</code> - Total: <strong>$${o.total}</strong> <span class="badge">${o.status}</span></div>`;
+      });
+    }
+
+    window.addEventListener('DOMContentLoaded', initStorefront);
+  </script>
+</body>
+</html>
