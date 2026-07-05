@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Task Manager - Identity</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: sans-serif; }
+    body { background-color: #f0f2f5; display: flex; justify-content: center; align-items: center; height: 100vh; padding: 20px; }
+    .card { background: white; padding: 30px; border-radius: 10px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); width: 100%; max-width: 400px; }
+    h2 { text-align: center; margin-bottom: 20px; color: #1e293b; }
+    input { width: 100%; padding: 12px; margin-bottom: 15px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 1rem; }
+    button { width: 100%; padding: 12px; background: #2563eb; color: white; border: none; border-radius: 6px; font-weight: bold; cursor: pointer; font-size: 1rem; }
+    button:hover { background: #1d4ed8; }
+    .toggle { text-align: center; margin-top: 15px; color: #64748b; cursor: pointer; font-size: 0.9rem; }
+    .error { color: #dc2626; text-align: center; margin-bottom: 15px; font-weight: 600; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h2 id="formTitle">Login to WorkSpace</h2>
+    <p id="errorMsg" class="error"></p>
+    <form id="authForm">
+      <input type="text" id="username" placeholder="Username" required>
+      <input type="password" id="password" placeholder="Password" required>
+      <button type="submit" id="submitBtn">Login</button>
+    </form>
+    <div class="toggle" id="toggleMode">Don't have an account? Register here.</div>
+  </div>
+
+  <script>
+    let isLoginMode = true;
+    if (localStorage.getItem('token')) window.location.href = '/';
+
+    document.getElementById('toggleMode').addEventListener('click', () => {
+      isLoginMode = !isLoginMode;
+      document.getElementById('formTitle').textContent = isLoginMode ? 'Login to WorkSpace' : 'Create New Account';
+      document.getElementById('submitBtn').textContent = isLoginMode ? 'Login' : 'Register';
+      document.getElementById('toggleMode').textContent = isLoginMode ? "Don't have an account? Register here." : "Already have an account? Login here.";
+    });
+
+    document.getElementById('authForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const errEl = document.getElementById('errorMsg');
+      errEl.textContent = '';
+      
+      const payload = {
+        username: document.getElementById('username').value,
+        password: document.getElementById('password').value
+      };
+
+      const endpoint = isLoginMode ? '/api/auth/login' : '/api/auth/register';
+
+      try {
+        const response = await fetch(endpoint, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+        const data = await response.json();
+
+        if (!response.ok) throw new Error(data.error || 'Operation failed');
+
+        if (isLoginMode) {
+          localStorage.setItem('token', data.token);
+          localStorage.setItem('username', data.username);
+          window.location.href = '/';
+        } else {
+          alert('Registration successful! Please login.');
+          isLoginMode = true;
+          document.getElementById('toggleMode').click();
+        }
+      } catch (err) {
+        errEl.textContent = err.message;
+      }
+    });
+  </script>
+</body>
+</html>

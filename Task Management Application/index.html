@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Dashboard - Control Matrix</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: sans-serif; }
+    body { background-color: #f8fafc; color: #0f172a; padding: 20px; }
+    .nav { max-width: 800px; margin: 0 auto 30px; display: flex; justify-content: space-between; align-items: center; background: white; padding: 15px 25px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.02); }
+    .logout { background: #ef4444; color: white; padding: 8px 16px; border: none; border-radius: 6px; cursor: pointer; font-weight: 600; }
+    .container { max-width: 800px; margin: 0 auto; background: white; padding: 30px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); }
+    .input-group { display: flex; gap: 10px; margin-bottom: 25px; }
+    .input-group input { flex: 1; padding: 12px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 1rem; }
+    .input-group button { background: #2563eb; color: white; border: none; padding: 12px 24px; border-radius: 6px; font-weight: bold; cursor: pointer; }
+    .task-item { display: flex; justify-content: space-between; align-items: center; padding: 14px; border-bottom: 1px solid #e2e8f0; }
+    .task-item.completed span { text-decoration: line-through; color: #94a3b8; }
+    .actions { display: flex; gap: 10px; }
+    .btn-done { background: #10b981; color: white; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer; }
+    .btn-del { background: #ef4444; color: white; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer; }
+  </style>
+</head>
+<body>
+
+  <div class="nav">
+    <h2>Welcome, <span id="userDisplay">User</span></h2>
+    <button class="logout" id="logoutBtn">Logout</button>
+  </div>
+
+  <div class="container">
+    <div class="input-group">
+      <input type="text" id="taskInput" placeholder="Describe your new project objective...">
+      <button id="addTaskBtn">Add Task</button>
+    </div>
+    <div id="taskList"></div>
+  </div>
+
+  <script>
+    const token = localStorage.getItem('token');
+    if (!token) window.location.href = '/login';
+    
+    document.getElementById('userDisplay').textContent = localStorage.getItem('username');
+    document.getElementById('logoutBtn').addEventListener('click', () => {
+      localStorage.clear();
+      window.location.href = '/login';
+    });
+
+    async function req(url, method = 'GET', body = null) {
+      const opts = {
+        method,
+        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' }
+      };
+      if (body) opts.body = JSON.stringify(body);
+      const res = await fetch(url, opts);
+      if (res.status === 403 || res.status === 401) { localStorage.clear(); window.location.href = '/login'; }
+      return res.json();
+    }
+
+    async function loadTasks() {
+      const list = document.getElementById('taskList');
+      list.innerHTML = '';
+      const tasks = await req('/api/tasks');
+      
+      tasks.forEach(task => {
+        const item = document.createElement('div');
+        item.className = `task-item ${task.completed ? 'completed' : ''}`;
+        item.innerHTML = `
+          <span>${task.title}</span>
+          <div class="actions">
+            <button class="btn-done" onclick="toggleTask('${task._id}', ${task.completed})">✓</button>
+            <button class="btn-del" onclick="deleteTask('${task._id}')">🗑️</button>
+          </div>
+        `;
+        list.appendChild(item);
+      });
+    }
+
+    document.getElementById('addTaskBtn').addEventListener('click', async () => {
+      const input = document.getElementById('taskInput');
+      if (!input.value.trim()) return;
+      await req('/api/tasks', 'POST', { title: input.value });
+      input.value = '';
+      loadTasks();
+    });
+
+    window.toggleTask = async (id, currentStatus) => {
+      await req(`/api/tasks/${id}`, 'PUT', { completed: !currentStatus });
+      loadTasks();
+    };
+
+    window.deleteTask = async (id) => {
+      await req(`/api/tasks/${id}`, 'DELETE');
+      loadTasks();
+    };
+
+    window.addEventListener('DOMContentLoaded', loadTasks);
+  </script>
+</body>
+</html>
