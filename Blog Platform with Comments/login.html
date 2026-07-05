@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Blog Engine Gateway</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: sans-serif; }
+    body { background: #f8fafc; display: flex; justify-content: center; align-items: center; height: 100vh; }
+    .box { background: white; padding: 35px; border-radius: 8px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); width: 100%; max-width: 380px; }
+    h2 { text-align: center; margin-bottom: 20px; color: #1e293b; }
+    input { width: 100%; padding: 12px; margin-bottom: 15px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 1rem; }
+    button { width: 100%; padding: 12px; background: #0284c7; color: white; border: none; border-radius: 6px; font-weight: bold; cursor: pointer; }
+    button:hover { background: #0369a1; }
+    .toggle { text-align: center; margin-top: 15px; color: #64748b; cursor: pointer; font-size: 0.9rem; }
+    .err { color: #ef4444; text-align: center; margin-bottom: 12px; font-weight: bold; }
+  </style>
+</head>
+<body>
+  <div class="box">
+    <h2 id="title">Blog Platform Sign In</h2>
+    <div id="errMsg" class="err"></div>
+    <form id="authForm">
+      <input type="text" id="username" placeholder="Username" required>
+      <input type="password" id="password" placeholder="Password" required>
+      <button type="submit" id="btnText">Sign In</button>
+    </form>
+    <div class="toggle" id="toggleLink">Need a writer handle? Register here.</div>
+  </div>
+  <script>
+    let isLogin = true;
+    document.getElementById('toggleLink').addEventListener('click', () => {
+      isLogin = !isLogin;
+      document.getElementById('title').textContent = isLogin ? 'Blog Platform Sign In' : 'Create Writer Handle';
+      document.getElementById('btnText').textContent = isLogin ? 'Sign In' : 'Register Profile';
+      document.getElementById('toggleLink').textContent = isLogin ? "Need a writer handle? Register here." : "Already registered? Return to gateway.";
+    });
+
+    document.getElementById('authForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const payload = { username: document.getElementById('username').value, password: document.getElementById('password').value };
+      const res = await fetch(isLogin ? '/api/auth/login' : '/api/auth/register', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload)
+      });
+      const data = await res.json();
+      if (!res.ok) return document.getElementById('errMsg').textContent = data.error;
+
+      if (isLogin) {
+        localStorage.setItem('blog_token', data.token);
+        localStorage.setItem('blog_user', data.username);
+        window.location.href = '/';
+      } else {
+        alert('Handle configured successfully! Please login.');
+        window.location.reload();
+      }
+    });
+  </script>
+</body>
+</html>

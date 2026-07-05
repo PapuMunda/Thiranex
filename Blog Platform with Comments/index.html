@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Blog Engine Feed</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: sans-serif; }
+    body { background: #f1f5f9; color: #0f172a; padding: 20px; }
+    .layout { max-width: 800px; margin: 0 auto; }
+    .navbar { display: flex; justify-content: space-between; align-items: center; background: white; padding: 20px; border-radius: 8px; margin-bottom: 25px; box-shadow: 0 1px 3px rgba(0,0,0,0.02); }
+    .editor-card, .post-card { background: white; padding: 25px; border-radius: 8px; margin-bottom: 20px; box-shadow: 0 1px 4px rgba(0,0,0,0.05); }
+    input, textarea { width: 100%; padding: 12px; margin-bottom: 15px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 1rem; }
+    .btn { padding: 8px 16px; background: #0284c7; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: 600; }
+    .btn-danger { background: #ef4444; }
+    .comment-section { margin-top: 20px; padding-top: 15px; border-top: 1px dashed #e2e8f0; }
+    .comment-bubble { background: #f8fafc; padding: 10px; margin-bottom: 8px; border-radius: 4px; font-size: 0.9rem; }
+  </style>
+</head>
+<body>
+  <div class="layout">
+    <div class="navbar">
+      <h3>Active Handle: <span id="userBadge" style="color:#0284c7;">...</span></h3>
+      <button class="btn btn-danger" onclick="localStorage.clear(); window.location.href='/login';">Disconnect</button>
+    </div>
+
+    <div class="editor-card">
+      <h3>Compose Entry</h3><br>
+      <input type="text" id="postTitle" placeholder="Catchy Article Heading...">
+      <textarea id="postContent" placeholder="Write your thoughts down here..." rows="4"></textarea>
+      <button class="btn" id="publishBtn">Publish to Feed</button>
+    </div>
+
+    <div id="blogFeed"></div>
+  </div>
+
+  <script>
+    const token = localStorage.getItem('blog_token');
+    const currentUser = localStorage.getItem('blog_user');
+    if (!token) window.location.href = '/login';
+    document.getElementById('userBadge').textContent = currentUser;
+
+    async function req(url, method = 'GET', body = null) {
+      const opts = { method, headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' }};
+      if (body) opts.body = JSON.stringify(body);
+      const res = await fetch(url, opts);
+      if (res.status === 401 || res.status === 403) { localStorage.clear(); window.location.href = '/login'; }
+      return res.json();
+    }
+
+    async function fetchAndRenderFeed() {
+      const feed = document.getElementById('blogFeed');
+      feed.innerHTML = '';
+      const posts = await req('/api/posts');
+      
+      posts.forEach(p => {
+        const div = document.createElement('div');
+        div.className = 'post-card';
+        
+        let commentStreamHTML = p.comments.map(c => `
+          <div class="comment-bubble"><strong>${c.authorName}:</strong> ${c.text}</div>
+        `).join('');
+
+        let deleteBtnHTML = p.authorName === currentUser ? 
+          `<button class="btn btn-danger" style="float:right; padding:4px 8px; font-size:0.8rem;" onclick="removePost('${p._id}')">Delete Entry</button>` : '';
+
+        div.innerHTML = `
+          ${deleteBtnHTML}
+          <h2>${p.title}</h2>
+          <small style="color:#64748b;">Authored by ${p.authorName}</small>
+          <p style="margin:15px 0; font-size:1.05rem;">${p.content}</p>
+          
+          <div class="comment-section">
+            <h4>Discussion Stream</h4><br>
+            <div>${commentStreamHTML || '<p style="color:#94a3b8; font-size:0.9rem;">No feedback left yet.</p>'}</div>
+            <div style="display:flex; gap:10px; margin-top:15px;">
+              <input type="text" id="input-${p._id}" placeholder="Leave public insight..." style="margin:0; padding:8px;">
+              <button class="btn" onclick="submitComment('${p._id}')">Reply</button>
+            </div>
+          </div>
+        `;
+        feed.appendChild(div);
+      });
+    }
+
+    document.getElementById('publishBtn').addEventListener('click', async () => {
+      const title = document.getElementById('postTitle').value;
+      const content = document.getElementById('postContent').value;
+      if (!title.trim() || !content.trim()) return alert('Complete all workspace items.');
+      await req('/api/posts', 'POST', { title, content });
+      document.getElementById('postTitle').value = '';
+      document.getElementById('postContent').value = '';
+      fetchAndRenderFeed();
+    });
+
+    window.submitComment = async (id) => {
+      const input = document.getElementById(`input-${id}`);
+      if (!input.value.trim()) return;
+      await req(`/api/posts/${id}/comments`, 'POST', { text: input.value });
+      fetchAndRenderFeed();
+    };
+
+    window.removePost = async (id) => {
+      if (!confirm('Permanently remove this article entry?')) return;
+      await req(`/api/posts/${id}`, 'DELETE');
+      fetchAndRenderFeed();
+    };
+
+    window.addEventListener('DOMContentLoaded', fetchAndRenderFeed);
+  </script>
+</body>
+</html>
